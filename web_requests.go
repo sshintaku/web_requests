@@ -12,14 +12,18 @@ import (
 	"github.com/sshintaku/cloud_types"
 )
 
-func PostWebRequest(url string, payload []byte) (*string, error) {
+func PostWebRequest(url string, payload []byte, token *string) (*string, error) {
 	request, httpError := http.NewRequest("POST", url, bytes.NewBuffer(payload))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	if token != nil {
+		request.Header.Set("x-redlock-auth", *token)
+	}
+
 	if httpError != nil {
 		return nil, httpError
 	}
 	var netClient = &http.Client{
-		Timeout: time.Second * 10,
+		Timeout: time.Second * 50,
 	}
 	response, responseError := netClient.Do(request)
 	if responseError != nil {
@@ -43,7 +47,7 @@ func GetJWTToken(host string, username string, password string) (*cloud_types.Pr
 	jsonPayload, _ := json.Marshal(auth)
 
 	var token cloud_types.JwtToken
-	response, responseError := PostWebRequest(host, jsonPayload)
+	response, responseError := PostWebRequest(host, jsonPayload, nil)
 	if responseError != nil {
 		return nil, responseError
 	}
@@ -54,7 +58,30 @@ func GetJWTToken(host string, username string, password string) (*cloud_types.Pr
 
 func ProcessWebRequest(request *http.Request) ([]byte, error) {
 	var netClient = &http.Client{
-		Timeout: time.Second * 10,
+		Timeout: time.Second * 500,
+	}
+	response, responseError := netClient.Do(request)
+	if responseError != nil {
+		return nil, responseError
+	}
+	body, httpReadError := ioutil.ReadAll(response.Body)
+	defer response.Body.Close()
+	if httpReadError != nil {
+		return nil, httpReadError
+	}
+	// responseBody := string(body)
+	return body, nil
+}
+
+func PostMethod(url string, payload []byte, token string) (*string, error) {
+	request, httpError := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+	request.Header.Add("x-redlock-auth", token)
+	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
+	if httpError != nil {
+		return nil, httpError
+	}
+	var netClient = &http.Client{
+		Timeout: time.Second * 200,
 	}
 	response, responseError := netClient.Do(request)
 	if responseError != nil {
@@ -64,8 +91,8 @@ func ProcessWebRequest(request *http.Request) ([]byte, error) {
 	if httpReadError != nil {
 		return nil, httpReadError
 	}
-	// responseBody := string(body)
-	return body, nil
+	responseBody := string(body)
+	return &responseBody, nil
 }
 
 func GetMethod(uri string, token string) ([]byte, error) {
@@ -86,6 +113,7 @@ func GetMethod(uri string, token string) ([]byte, error) {
 
 	}
 	return body, nil
+
 }
 
 func GetComputeBaseUrl(token string) (string, error) {
