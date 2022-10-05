@@ -124,3 +124,18 @@ func GetComputeBaseUrl(token string) (string, error) {
 	return base.BaseURI, nil
 
 }
+
+func PutRequest(uri string, payload []byte, token string) string {
+	request, httpError := http.NewRequest("PUT", uri, bytes.NewBuffer(payload))
+	request.Header.Add("x-redlock-auth", token)
+	request.Header.Add("Content-Type", "application/json")
+	if httpError != nil {
+		log.Fatalln(httpError)
+	}
+	result, resultError := ProcessWebRequest(request)
+
+	if resultError != nil {
+		log.Fatalln(resultError)
+	}
+	return string(result)
+}
